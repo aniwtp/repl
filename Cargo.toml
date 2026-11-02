@@ -8,7 +8,7 @@ description = "Read-only replication over capnp/TCP/TLS1.3 (self-signed, SPKI pi
 default = []
 
 [dependencies]
-db-wrapper = { path = "../../../db-wrapper" }
+db-wrapper = { git = "https://github.com/aniwtp/db_wrapper.git", rev = "062959661334adcadce8ab4cbedf28002db6216f" }
 shodh-redb = { git = "https://github.com/umzi2/shodh-redb-fork", branch = "perf/upstream-port", features = ["compression_lz4"] }
 ntex = { version = "4", features = ["compio"] }
 compio-io = { version = "0.10", features = ["compat"] }
