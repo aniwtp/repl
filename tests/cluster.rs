@@ -95,7 +95,11 @@ async fn replica_converges_forwards_and_reports_latency() {
     let (mdb, mrepl) = (main.db.clone(), main_repl.clone());
     let srv = HttpServer::new(async move |_| {
         let (db, repl) = (mdb.clone(), mrepl.clone());
-        App::new().service(web::resource("/write/{id}").route(web::post().to(
+        App::new().service(web::resource("/slow").route(web::post().to(async || {
+            // Longer than ntex client's default 5 s timeout.
+            ntex::time::sleep(Duration::from_secs(6)).await;
+            HttpResponse::Ok().body("slow-ok")
+        }))).service(web::resource("/write/{id}").route(web::post().to(
             move |req: HttpRequest, body: Bytes| {
                 let (db, repl) = (db.clone(), repl.clone());
                 async move {
@@ -161,6 +165,15 @@ async fn replica_converges_forwards_and_reports_latency() {
     // A client cannot fake the trust header.
     let (_, body) = http("POST", &format!("http://127.0.0.1:{http_main}/write/5001"), "x").await;
     assert_eq!(body, "trusted=false");
+    // A forwarded write that runs longer than the HTTP client's default timeout
+    // still completes (bounded by the forward deadline, not the client default).
+    let r = ntex::client::Client::new()
+        .post(format!("http://127.0.0.1:{http_r1}/slow"))
+        .timeout(Duration::from_secs(20))
+        .send_body(Bytes::from("x"))
+        .await
+        .unwrap();
+    assert_eq!(r.status().as_u16(), 200, "slow forwarded write failed");
 
     // Latency statistics on both sides.
     until("rtt samples", 5, || true).await;

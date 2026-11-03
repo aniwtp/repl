@@ -470,7 +470,9 @@ async fn execute(sh: &Arc<Shared>, f: Forward) -> ForwardResp {
 
     // Loopback; a client per call keeps its pool from outliving the runtime.
     let client = ntex::client::Client::new();
-    let mut rq = client.request(method, url.as_str());
+    // Без явного таймаута ntex-клиент рвёт запрос через 5 с (дефолт) → 502 на долгих записях
+    // (большая заливка страниц). Предел — дедлайн форварда, его соблюдает `timeout` ниже.
+    let mut rq = client.request(method, url.as_str()).timeout(deadline);
     for (k, v) in &f.headers {
         if skip_header(k) {
             continue;
